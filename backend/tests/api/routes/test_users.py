@@ -8,6 +8,7 @@ from app import crud
 from app.core.config import settings
 from app.core.security import verify_password
 from app.models import User, UserCreate
+from tests.utils.item import create_random_item
 from tests.utils.user import create_random_user
 from tests.utils.utils import random_email, random_lower_string
 
@@ -519,3 +520,39 @@ def test_delete_user_without_privileges(
     )
     assert r.status_code == 403
     assert r.json()["detail"] == "The user doesn't have enough privileges"
+
+
+def test_read_users_includes_item_stats(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    r = client.get(
+        f"{settings.API_V1_STR}/users/",
+        headers=superuser_token_headers,
+        params={"limit": 1000},
+    )
+    assert r.status_code == 200
+    data = r.json()["data"]
+    owner = next(u for u in data if u["id"] == str(item.owner_id))
+    assert owner["item_count"] == 1
+    assert owner["last_item_at"] is not None
+
+
+def test_read_user_stats(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.get(
+        f"{settings.API_V1_STR}/users/stats", headers=superuser_token_headers
+    )
+    assert r.status_code == 200
+    stats = r.json()
+    for key in (
+        "total_users",
+        "active_users",
+        "superusers",
+        "total_items",
+        "items_last_7_days",
+    ):
+        assert key in stats
+    assert stats["total_users"] >= 1
+    assert stats["total_items"] >= 0

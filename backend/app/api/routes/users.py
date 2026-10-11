@@ -1,4 +1,6 @@
+import logging
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,11 +22,15 @@ from app.models import (
     UserCreate,
     UserPublic,
     UserRegister,
-    UsersPublic,
+    UserStats,
+    UsersWithStatsPublic,
     UserUpdate,
     UserUpdateMe,
+    UserWithStats,
 )
 from app.utils import generate_new_account_email, send_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -32,7 +38,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get(
     "/",
     dependencies=[Depends(get_current_active_superuser)],
-    response_model=UsersPublic,
+    response_model=UsersWithStatsPublic,
 )
 def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     """
@@ -47,8 +53,21 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
     )
     users = session.exec(statement).all()
 
-    users_public = [UserPublic.model_validate(user) for user in users]
-    return UsersPublic(data=users_public, count=count)
+    users_public = []
+    for user in users:
+        item_count = session.exec(
+            select(func.count()).select_from(Item).where(Item.owner_id == user.id)
+        ).one()
+        last_item_at = session.exec(
+            select(func.max(Item.created_at)).where(Item.owner_id == user.id)
+        ).one()
+        users_public.append(
+            UserWithStats.model_validate(
+                user,
+                update={"item_count": item_count, "last_item_at": last_item_at},
+            )
+        )
+    return UsersWithStatsPublic(data=users_public, count=count)
 
 
 @router.post(
@@ -157,6 +176,29 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
     user_create = UserCreate.model_validate(user_in)
     user = crud.create_user(session=session, user_create=user_create)
     return user
+
+
+@router.get("/stats", response_model=UserStats)
+async def read_user_stats(session: SessionDep, current_user: CurrentUser) -> Any:
+    """
+    Get aggregate user and item statistics.
+    """
+    logger.debug("User stats requested by %s", current_user.id)
+
+    users = session.exec(select(User)).all()
+    items = session.exec(select(Item)).all()
+
+    return UserStats(
+        total_users=len(users),
+        active_users=sum(1 for u in users if u.is_active),
+        superusers=sum(1 for u in users if u.is_superuser),
+        total_items=len(items),
+        items_last_7_days=sum(
+            1
+            for i in items
+            if i.created_at and i.created_at >= datetime.now(UTC) - timedelta(days=7)
+        ),
+    )
 
 
 @router.get("/{user_id}", response_model=UserPublic)

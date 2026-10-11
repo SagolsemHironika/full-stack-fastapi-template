@@ -66,6 +66,24 @@ class UsersPublic(SQLModel):
     count: int
 
 
+class UserWithStats(UserPublic):
+    item_count: int = 0
+    last_item_at: datetime | None = None
+
+
+class UsersWithStatsPublic(SQLModel):
+    data: list[UserWithStats]
+    count: int
+
+
+class UserStats(SQLModel):
+    total_users: int
+    active_users: int
+    superusers: int
+    total_items: int
+    items_last_7_days: int
+
+
 # Shared properties
 class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
