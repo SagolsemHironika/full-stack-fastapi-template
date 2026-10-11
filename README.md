@@ -4,7 +4,7 @@
 > I use this repository to evaluate [Codzee](https://www.codzee.io/), an AI code-review tool. Some open pull requests **deliberately contain security vulnerabilities and bugs** so I can measure what the reviewer catches and misses. They include injection, broken access control, cross-site scripting and unsafe migrations.
 >
 > - Unmerged PR branches are **not safe** to run, and none of that code should be reused.
-> - A full write-up of the method and results will be added to this repository when the evaluation is finished.
+> - 📄 **Full evaluation report:** [CODZEE_EVALUATION.md](./CODZEE_EVALUATION.md): method, results, every planted mistake and Codzee's response, with links to verify each one.
 > - For the real, maintained project, see [fastapi/full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template).
 
 # Full Stack FastAPI Template
