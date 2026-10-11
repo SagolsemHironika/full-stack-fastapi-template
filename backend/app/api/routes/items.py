@@ -2,6 +2,7 @@ import uuid
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import ColumnElement
 from sqlmodel import col, func, or_, select, text
 
 from app.api.deps import CurrentUser, SessionDep
@@ -40,7 +41,7 @@ def read_items(
             f"Allowed fields: {', '.join(sorted(SORTABLE_FIELDS))}",
         )
 
-    filters = []
+    filters: list[ColumnElement[bool]] = []
     if not current_user.is_superuser:
         filters = [Item.owner_id == current_user.id]
 
