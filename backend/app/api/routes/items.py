@@ -145,6 +145,8 @@ def restore_item(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) 
     item = session.get(Item, id)
     if not item or not item.is_archived:
         raise HTTPException(status_code=404, detail="Archived item not found")
+    if not current_user.is_superuser and (item.owner_id != current_user.id):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
     item.is_archived = False
     item.archived_at = None
     session.add(item)

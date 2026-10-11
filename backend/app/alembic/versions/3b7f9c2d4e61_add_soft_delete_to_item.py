@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('item', sa.Column('is_archived', sa.Boolean(), nullable=False))
+    op.add_column('item', sa.Column('is_archived', sa.Boolean(), nullable=False, server_default=sa.false()))
     op.add_column('item', sa.Column('archived_at', sa.DateTime(timezone=True), nullable=True))
     op.create_index(op.f('ix_item_is_archived'), 'item', ['is_archived'], unique=False)
 
@@ -25,3 +25,4 @@ def upgrade():
 def downgrade():
     op.drop_index(op.f('ix_item_is_archived'), table_name='item')
     op.drop_column('item', 'archived_at')
+    op.drop_column('item', 'is_archived')

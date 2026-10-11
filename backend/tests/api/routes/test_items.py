@@ -213,3 +213,23 @@ def test_restore_item_not_archived(
         headers=superuser_token_headers,
     )
     assert response.status_code == 404
+
+
+def test_restore_item_not_enough_permissions(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    normal_user_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    item = create_random_item(db)
+    client.delete(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+    )
+    response = client.post(
+        f"{settings.API_V1_STR}/items/{item.id}/restore",
+        headers=normal_user_token_headers,
+    )
+    assert response.status_code == 403
+    db.refresh(item)
+    assert item.is_archived
