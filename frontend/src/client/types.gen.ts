@@ -82,6 +82,14 @@ export type ItemPublic = {
      * Created At
      */
     created_at?: string | null;
+    /**
+     * Is Archived
+     */
+    is_archived?: boolean;
+    /**
+     * Archived At
+     */
+    archived_at?: string | null;
 };
 
 /**
@@ -920,6 +928,36 @@ export type itemsUpdateItemResponses = {
 };
 
 export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+
+export type itemsRestoreItemData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/items/{id}/restore';
+};
+
+export type itemsRestoreItemErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type itemsRestoreItemError = itemsRestoreItemErrors[keyof itemsRestoreItemErrors];
+
+export type itemsRestoreItemResponses = {
+    /**
+     * Successful Response
+     */
+    200: ItemPublic;
+};
+
+export type itemsRestoreItemResponse = itemsRestoreItemResponses[keyof itemsRestoreItemResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;
