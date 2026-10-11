@@ -261,6 +261,32 @@ export type UserRegister = {
 };
 
 /**
+ * UserStats
+ */
+export type UserStats = {
+    /**
+     * Total Users
+     */
+    total_users: number;
+    /**
+     * Active Users
+     */
+    active_users: number;
+    /**
+     * Superusers
+     */
+    superusers: number;
+    /**
+     * Total Items
+     */
+    total_items: number;
+    /**
+     * Items Last 7 Days
+     */
+    items_last_7_days: number;
+};
+
+/**
  * UserUpdate
  */
 export type UserUpdate = {
@@ -301,13 +327,51 @@ export type UserUpdateMe = {
 };
 
 /**
- * UsersPublic
+ * UserWithStats
  */
-export type UsersPublic = {
+export type UserWithStats = {
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Is Active
+     */
+    is_active?: boolean;
+    /**
+     * Is Superuser
+     */
+    is_superuser?: boolean;
+    /**
+     * Full Name
+     */
+    full_name?: string | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Item Count
+     */
+    item_count?: number;
+    /**
+     * Last Item At
+     */
+    last_item_at?: string | null;
+};
+
+/**
+ * UsersWithStatsPublic
+ */
+export type UsersWithStatsPublic = {
     /**
      * Data
      */
-    data: Array<UserPublic>;
+    data: Array<UserWithStats>;
     /**
      * Count
      */
@@ -497,7 +561,7 @@ export type usersReadUsersResponses = {
     /**
      * Successful Response
      */
-    200: UsersPublic;
+    200: UsersWithStatsPublic;
 };
 
 export type usersReadUsersResponse = usersReadUsersResponses[keyof usersReadUsersResponses];
@@ -633,6 +697,22 @@ export type usersRegisterUserResponses = {
 };
 
 export type usersRegisterUserResponse = usersRegisterUserResponses[keyof usersRegisterUserResponses];
+
+export type usersReadUserStatsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/users/stats';
+};
+
+export type usersReadUserStatsResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserStats;
+};
+
+export type usersReadUserStatsResponse = usersReadUserStatsResponses[keyof usersReadUserStatsResponses];
 
 export type usersDeleteUserData = {
     body?: never;
