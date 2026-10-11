@@ -29,7 +29,7 @@ def register_failure(email: str) -> None:
     entry = _attempts.setdefault(email, _LoginAttempts())
     entry.failed += 1
     if entry.failed >= settings.LOGIN_MAX_FAILED_ATTEMPTS:
-        entry.locked_until = time.time() + settings.LOGIN_LOCKOUT_MINUTES
+        entry.locked_until = time.time() + settings.LOGIN_LOCKOUT_MINUTES * 60
         entry.failed = 0
 
 
