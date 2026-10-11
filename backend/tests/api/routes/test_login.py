@@ -189,3 +189,39 @@ def test_login_with_argon2_password_keeps_hash(client: TestClient, db: Session) 
 
     assert user.hashed_password == original_hash
     assert user.hashed_password.startswith("$argon2")
+
+
+def _login(client: TestClient, email: str, password: str) -> int:
+    r = client.post(
+        f"{settings.API_V1_STR}/login/access-token",
+        data={"username": email, "password": password},
+    )
+    return r.status_code
+
+
+def test_login_locked_after_max_failed_attempts(
+    client: TestClient, db: Session
+) -> None:
+    email = random_email()
+    password = random_lower_string()
+    create_user(session=db, user_create=UserCreate(email=email, password=password))
+
+    for _ in range(settings.LOGIN_MAX_FAILED_ATTEMPTS):
+        assert _login(client, email, "wrong-password") == 400
+
+    # Even the correct password is rejected while the account is locked
+    assert _login(client, email, password) == 429
+
+
+def test_login_success_resets_failed_attempts(client: TestClient, db: Session) -> None:
+    email = random_email()
+    password = random_lower_string()
+    create_user(session=db, user_create=UserCreate(email=email, password=password))
+
+    for _ in range(settings.LOGIN_MAX_FAILED_ATTEMPTS - 1):
+        assert _login(client, email, "wrong-password") == 400
+    assert _login(client, email, password) == 200
+
+    # Counter was reset, so another round of failures doesn't lock immediately
+    assert _login(client, email, "wrong-password") == 400
+    assert _login(client, email, password) == 200

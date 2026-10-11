@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
-from app.core import security
+from app.core import login_throttle, security
 from app.core.config import settings
 from app.models import Message, NewPassword, Token, UserPublic, UserUpdate
 from app.utils import (
@@ -31,9 +31,16 @@ def login_access_token(
         session=session, email=form_data.username, password=form_data.password
     )
     if not user:
+        login_throttle.register_failure(form_data.username)
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    elif not user.is_active:
+    if login_throttle.is_locked(form_data.username):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again later.",
+        )
+    if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+    login_throttle.reset(form_data.username)
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return Token(
         access_token=security.create_access_token(
@@ -94,6 +101,8 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
         db_user=user,
         user_in=user_in_update,
     )
+    # A successful password reset proves account ownership, so lift any lockout
+    login_throttle.reset(email)
     return Message(message="Password updated successfully")
 
 
