@@ -3,6 +3,7 @@ import { Check, Copy } from "lucide-react"
 
 import type { ItemPublic } from "@/client"
 import type { DataTableFeatures } from "@/components/Common/DataTable"
+import { HighlightedText } from "@/components/Common/HighlightedText"
 import { Button } from "@/components/ui/button"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { cn } from "@/lib/utils"
@@ -32,7 +33,9 @@ function CopyId({ id }: { id: string }) {
   )
 }
 
-export const columns: ColumnDef<DataTableFeatures, ItemPublic>[] = [
+export const getColumns = (
+  query: string,
+): ColumnDef<DataTableFeatures, ItemPublic>[] => [
   {
     accessorKey: "id",
     header: "ID",
@@ -42,7 +45,11 @@ export const columns: ColumnDef<DataTableFeatures, ItemPublic>[] = [
     accessorKey: "title",
     header: "Title",
     cell: ({ row }) => (
-      <span className="font-medium">{row.original.title}</span>
+      <HighlightedText
+        text={row.original.title}
+        query={query}
+        className="font-medium"
+      />
     ),
   },
   {
@@ -57,7 +64,11 @@ export const columns: ColumnDef<DataTableFeatures, ItemPublic>[] = [
             !description && "italic",
           )}
         >
-          {description || "No description"}
+          {description ? (
+            <HighlightedText text={description} query={query} />
+          ) : (
+            "No description"
+          )}
         </span>
       )
     },
