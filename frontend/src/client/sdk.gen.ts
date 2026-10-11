@@ -289,6 +289,11 @@ export class ItemsService {
      * Read Items
      *
      * Retrieve items.
+     *
+     * - **q**: case-insensitive search on title and description
+     * - **sort_by**: column to sort by, or a comma-separated list, e.g.
+     * `title,created_at`
+     * - **order**: `asc` or `desc`
      */
     public static readItems<ThrowOnError extends boolean = true>(options?: Options<itemsReadItemsData, ThrowOnError>) {
         return (options?.client ?? client).get<itemsReadItemsResponses, itemsReadItemsErrors, ThrowOnError>({

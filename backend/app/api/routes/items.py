@@ -1,8 +1,9 @@
 import uuid
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
-from sqlmodel import col, func, select
+from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import ColumnElement
+from sqlmodel import col, func, or_, select, text
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import Item, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate, Message
@@ -10,36 +11,57 @@ from app.models import Item, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate, Me
 router = APIRouter(prefix="/items", tags=["items"])
 
 
+# Columns that clients are allowed to sort by
+SORTABLE_FIELDS = {"title", "created_at"}
+
+
 @router.get("/", response_model=ItemsPublic)
 def read_items(
-    session: SessionDep, current_user: CurrentUser, skip: int = 0, limit: int = 100
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
+    q: str | None = Query(default=None, max_length=255),
+    sort_by: str = "created_at",
+    order: Literal["asc", "desc"] = "desc",
 ) -> Any:
     """
     Retrieve items.
-    """
 
-    if current_user.is_superuser:
-        count_statement = select(func.count()).select_from(Item)
-        count = session.exec(count_statement).one()
-        statement = (
-            select(Item).order_by(col(Item.created_at).desc()).offset(skip).limit(limit)
+    - **q**: case-insensitive search on title and description
+    - **sort_by**: column to sort by, or a comma-separated list, e.g.
+      `title,created_at`
+    - **order**: `asc` or `desc`
+    """
+    primary_sort = sort_by.split(",")[0].strip()
+    if primary_sort not in SORTABLE_FIELDS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Cannot sort by '{primary_sort}'. "
+            f"Allowed fields: {', '.join(sorted(SORTABLE_FIELDS))}",
         )
-        items = session.exec(statement).all()
-    else:
-        count_statement = (
-            select(func.count())
-            .select_from(Item)
-            .where(Item.owner_id == current_user.id)
-        )
-        count = session.exec(count_statement).one()
-        statement = (
-            select(Item)
-            .where(Item.owner_id == current_user.id)
-            .order_by(col(Item.created_at).desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        items = session.exec(statement).all()
+
+    filters: list[ColumnElement[bool]] = []
+    if not current_user.is_superuser:
+        filters = [col(Item.owner_id) == current_user.id]
+
+    count_statement = select(func.count()).select_from(Item).where(*filters)
+    count = session.exec(count_statement).one()
+
+    if q:
+        pattern = f"%{q}%"
+        filters = [
+            or_(col(Item.title).ilike(pattern), col(Item.description).ilike(pattern))
+        ]
+
+    statement = (
+        select(Item)
+        .where(*filters)
+        .order_by(text(f"{sort_by} {order}"))
+        .offset(skip)
+        .limit(limit)
+    )
+    items = session.exec(statement).all()
 
     items_public = [ItemPublic.model_validate(item) for item in items]
     return ItemsPublic(data=items_public, count=count)

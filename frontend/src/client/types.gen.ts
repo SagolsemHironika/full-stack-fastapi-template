@@ -784,6 +784,18 @@ export type itemsReadItemsData = {
          * Limit
          */
         limit?: number;
+        /**
+         * Q
+         */
+        q?: string | null;
+        /**
+         * Sort By
+         */
+        sort_by?: string;
+        /**
+         * Order
+         */
+        order?: 'asc' | 'desc';
     };
     url: '/api/v1/items/';
 };
