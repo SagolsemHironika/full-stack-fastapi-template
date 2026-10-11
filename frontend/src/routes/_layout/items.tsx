@@ -1,13 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Search } from "lucide-react"
-import { Suspense } from "react"
+import { Suspense, useMemo, useState } from "react"
 
 import { ItemsService } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import AddItem from "@/components/Items/AddItem"
-import { columns } from "@/components/Items/columns"
+import { getColumns } from "@/components/Items/columns"
 import PendingItems from "@/components/Pending/PendingItems"
+import { Input } from "@/components/ui/input"
+import { useDebounce } from "@/hooks/useDebounce"
 
 function getItemsQueryOptions() {
   return {
@@ -28,10 +30,18 @@ export const Route = createFileRoute("/_layout/items")({
   }),
 })
 
-function ItemsTableContent() {
+function ItemsTableContent({ query }: { query: string }) {
   const { data: items } = useSuspenseQuery(getItemsQueryOptions())
+  const columns = useMemo(() => getColumns(query), [query])
 
-  if (items.data.length === 0) {
+  const needle = query.toLowerCase()
+  const filtered = items.data.filter(
+    (item) =>
+      item.title.toLowerCase().includes(needle) ||
+      (item.description ?? "").toLowerCase().includes(needle),
+  )
+
+  if (filtered.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-12">
         <div className="rounded-full bg-muted p-4 mb-4">
@@ -43,18 +53,21 @@ function ItemsTableContent() {
     )
   }
 
-  return <DataTable columns={columns} data={items.data} />
+  return <DataTable columns={columns} data={filtered} />
 }
 
-function ItemsTable() {
+function ItemsTable({ query }: { query: string }) {
   return (
     <Suspense fallback={<PendingItems />}>
-      <ItemsTableContent />
+      <ItemsTableContent query={query} />
     </Suspense>
   )
 }
 
 function Items() {
+  const [query, setQuery] = useState("")
+  const debouncedQuery = useDebounce(query)
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -64,7 +77,16 @@ function Items() {
         </div>
         <AddItem />
       </div>
-      <ItemsTable />
+      <div className="relative max-w-sm">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search items…"
+          className="pl-8"
+        />
+      </div>
+      <ItemsTable query={debouncedQuery} />
     </div>
   )
 }
