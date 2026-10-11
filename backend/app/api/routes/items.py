@@ -43,7 +43,7 @@ def read_items(
 
     filters: list[ColumnElement[bool]] = []
     if not current_user.is_superuser:
-        filters = [Item.owner_id == current_user.id]
+        filters = [col(Item.owner_id) == current_user.id]
 
     count_statement = select(func.count()).select_from(Item).where(*filters)
     count = session.exec(count_statement).one()
