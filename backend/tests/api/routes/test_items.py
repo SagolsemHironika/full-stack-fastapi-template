@@ -162,3 +162,74 @@ def test_delete_item_not_enough_permissions(
     assert response.status_code == 403
     content = response.json()
     assert content["detail"] == "Not enough permissions"
+
+
+def test_delete_item_is_soft_delete(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    response = client.delete(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    db.refresh(item)
+    assert item.is_archived
+    assert item.archived_at is not None
+
+    response = client.get(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+        params={"limit": 1000},
+    )
+    ids = [i["id"] for i in response.json()["data"]]
+    assert str(item.id) not in ids
+
+
+def test_restore_item(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    client.delete(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+    )
+    response = client.post(
+        f"{settings.API_V1_STR}/items/{item.id}/restore",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200
+    content = response.json()
+    assert content["is_archived"] is False
+    assert content["archived_at"] is None
+
+
+def test_restore_item_not_archived(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    response = client.post(
+        f"{settings.API_V1_STR}/items/{item.id}/restore",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 404
+
+
+def test_restore_item_not_enough_permissions(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    normal_user_token_headers: dict[str, str],
+    db: Session,
+) -> None:
+    item = create_random_item(db)
+    client.delete(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+    )
+    response = client.post(
+        f"{settings.API_V1_STR}/items/{item.id}/restore",
+        headers=normal_user_token_headers,
+    )
+    assert response.status_code == 403
+    db.refresh(item)
+    assert item.is_archived

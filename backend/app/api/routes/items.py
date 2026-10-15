@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any
 
@@ -5,7 +6,17 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Item, ItemCreate, ItemPublic, ItemsPublic, ItemUpdate, Message
+from app.models import (
+    Item,
+    ItemCreate,
+    ItemPublic,
+    ItemsPublic,
+    ItemUpdate,
+    Message,
+    get_datetime_utc,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -19,10 +30,18 @@ def read_items(
     """
 
     if current_user.is_superuser:
-        count_statement = select(func.count()).select_from(Item)
+        count_statement = (
+            select(func.count())
+            .select_from(Item)
+            .where(col(Item.is_archived).is_(False))
+        )
         count = session.exec(count_statement).one()
         statement = (
-            select(Item).order_by(col(Item.created_at).desc()).offset(skip).limit(limit)
+            select(Item)
+            .where(col(Item.is_archived).is_(False))
+            .order_by(col(Item.created_at).desc())
+            .offset(skip)
+            .limit(limit)
         )
         items = session.exec(statement).all()
     else:
@@ -35,6 +54,7 @@ def read_items(
         statement = (
             select(Item)
             .where(Item.owner_id == current_user.id)
+            .where(col(Item.is_archived).is_(False))
             .order_by(col(Item.created_at).desc())
             .offset(skip)
             .limit(limit)
@@ -102,12 +122,35 @@ def delete_item(
 ) -> Message:
     """
     Delete an item.
+
+    Items are soft-deleted (archived) so they can be restored later.
     """
     item = session.get(Item, id)
-    if not item:
+    if not item or item.is_archived:
         raise HTTPException(status_code=404, detail="Item not found")
     if not current_user.is_superuser and (item.owner_id != current_user.id):
         raise HTTPException(status_code=403, detail="Not enough permissions")
-    session.delete(item)
+    item.is_archived = True
+    item.archived_at = get_datetime_utc()
+    session.add(item)
     session.commit()
     return Message(message="Item deleted successfully")
+
+
+@router.post("/{id}/restore", response_model=ItemPublic)
+def restore_item(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+    """
+    Restore a previously deleted (archived) item.
+    """
+    item = session.get(Item, id)
+    if not item or not item.is_archived:
+        raise HTTPException(status_code=404, detail="Archived item not found")
+    if not current_user.is_superuser and (item.owner_id != current_user.id):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    item.is_archived = False
+    item.archived_at = None
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    logger.info("Item %s restored by user %s", item.id, current_user.id)
+    return item
